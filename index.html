@@ -19,6 +19,10 @@
     <div id="content"></div>
   </body>
   <script
+    src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"
+    type="application/javascript"
+  ></script>
+  <script
     type="text/javascript"
     src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.4/p5.min.js"
   ></script>
@@ -35,10 +39,6 @@
       background("black");
       let t = frameCount / 60;
 
-      for (let i = 0; i < random(5); i++) {
-        particles.push(new particle());
-      }
-
       for (let flake of particles) {
         flake.update(t);
         flake.display();
@@ -46,10 +46,10 @@
     }
 
     // particle class
-    function particle() {
+    function particle(value) {
       this.posY = 0;
       this.posX = random(width - 40) + 20;
-      this.size = random(2, 10);
+      this.size = 20 + value / 1000000000000000000;
 
       this.update = function (time) {
         let w = 0.1;
@@ -65,5 +65,35 @@
         ellipse(this.posX, this.posY, this.size);
       };
     }
+
+    var init = function () {
+      var customWsProvider = new ethers.providers.WebSocketProvider(
+        "wss://forno.celo.org/ws"
+      );
+
+      customWsProvider.on("pending", (tx) => {
+        customWsProvider.getTransaction(tx).then(function (transaction) {
+          // console.log(transaction);
+          console.log(transaction.value.toString());
+          particles.push(new particle(transaction.value.toNumber()));
+          draw();
+        });
+      });
+
+      customWsProvider._websocket.on("error", async () => {
+        console.log(`Unable to connect to ${ep.subdomain} retrying in 3s...`);
+        setTimeout(init, 3000);
+      });
+
+      customWsProvider._websocket.on("close", async (code) => {
+        console.log(
+          `Connection lost with code ${code}! Attempting reconnect in 3s...`
+        );
+        customWsProvider._websocket.terminate();
+        setTimeout(init, 3000);
+      });
+    };
+
+    init();
   </script>
 </html>
